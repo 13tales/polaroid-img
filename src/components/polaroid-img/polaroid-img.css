@@ -1,0 +1,27 @@
+:host {
+  display: block;
+}
+
+.container {
+  border: 1px solid;
+  background-color: #e9ecef;
+  width: 600px;
+  height: 600px;
+  perspective: 1000px;
+  transform-style: preserve-3d;
+  position: relative;
+  overflow: hidden;
+}
+
+.frame {
+  padding: 15px 15px 55px 15px;
+  background-color: white;
+  width: 300px;
+  will-change: transform;
+  transition: transform .15s linear;
+}
+
+.frame img {
+  height: 300px;
+  width: 300px;
+}
