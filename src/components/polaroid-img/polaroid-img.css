@@ -5,11 +5,10 @@
 .container {
   border: 1px solid;
   background-color: #e9ecef;
-  width: 600px;
-  height: 600px;
+  width: 100vw;
+  height: 100vh;
   perspective: 1000px;
   transform-style: preserve-3d;
-  position: relative;
   overflow: hidden;
 }
 
@@ -19,9 +18,17 @@
   width: 300px;
   will-change: transform;
   transition: transform .15s linear;
+  position: absolute;
 }
 
 .frame img {
   height: 300px;
   width: 300px;
+  object-fit: cover;
+  filter: contrast(5%) saturate(150%) ;
+}
+
+.develop {
+  transition: filter 4s ease-in;
+  filter: contrast(90%) saturate(110%) blur(0.5px) brightness(110%) !important;
 }

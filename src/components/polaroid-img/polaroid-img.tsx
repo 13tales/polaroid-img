@@ -1,5 +1,7 @@
-import { Component, Host, h, Prop, State } from '@stencil/core';
+import { Component, Host, h, Prop, State, Watch } from '@stencil/core';
 import * as CANNON from 'cannon-es';
+
+const MAPPING_FACTOR = 36;
 
 @Component({
   tag: 'polaroid-img',
@@ -10,88 +12,79 @@ export class PolaroidImg {
   world: CANNON.World;
   photoBody: CANNON.Body;
   groundBody: CANNON.Body;
-  mappingFactor: number;
+  images: string[] = [];
 
-  @State() worldX: number = 0;
-  @State() worldY: number = 0;
-  @State() worldZ: number = 0;
+  @State() nextIdx: number = 0;
   @State() orientation: CANNON.Quaternion | null;
 
-  @State() running: boolean = false;
+  @State() stepNumber: number = 0;
 
-  @Prop() src: string;
-  //File change
+  @State() photos: Map<number, { imgSrc: string; developed: boolean }> = new Map();
+
+  @Prop() data: string | string[] = [];
 
   constructor() {
     //Image dimensions
     // 88mm x 107mm
     // 330 x 375
     // Factor = 36
-    this.mappingFactor = 36;
 
     this.simulate = this.simulate.bind(this);
-    this.restartSimulation = this.restartSimulation.bind(this);
+    this.nextImage = this.nextImage.bind(this);
+    this.addPhoto = this.addPhoto.bind(this);
+
+    this.parseImageData(this.data);
 
     this.setupSimulation();
+  }
+
+  parseImageData(data: string | string[]) {
+    if (typeof data === 'string') {
+      this.images = data.split(/,\s?/);
+    } else if (Array.isArray(data)) {
+      this.images = data;
+    } else {
+      throw new Error('Invalid data provided');
+    }
+  }
+
+  addPhoto(imgSrc: string) {
+    // Size the box using a vector that's half of the final dimensions
+    const halfExtents = new CANNON.Vec3(4.4, 0.01, 5.3);
+    const boxShape = new CANNON.Box(halfExtents);
+
+    const body = new CANNON.Body({
+      mass: 1,
+      shape: boxShape,
+      collisionFilterGroup: this.nextIdx + 2,
+      collisionFilterMask: 1,
+    });
+
+    const spin = Math.random() * 20 - 10;
+    const velocity = Math.random() * 30 + 150;
+
+    body.position.set(4.4, 5, -10.7);
+    body.angularVelocity.set(0, Math.random() * 2 - 1, spin);
+    body.velocity.set(0, 0, velocity);
+
+    /* const newPhoto: [string, CANNON.Body] = [imgSrc, body]; */
+
+    this.world.addBody(body);
+
+    this.photos = new Map([...this.photos.entries(), [body.id, { imgSrc, developed: false }]]);
   }
 
   setupSimulation() {
     // Setup our physics world
     this.world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -9.8, 0), // cm/s²
+      gravity: new CANNON.Vec3(0, -400, 0), // cm/s²
     });
-
-    // Size the box using a vector that's half of the final dimensions
-    const halfExtents = new CANNON.Vec3(4.4, 0.05, 5.3);
-    const boxShape = new CANNON.Box(halfExtents);
-
-    this.photoBody = new CANNON.Body({
-      mass: 1,
-      shape: boxShape,
-    });
-
-    this.photoBody.position.set(4.4, 2, -10.7);
-    this.photoBody.velocity.set(0, 0, 20);
-    this.world.addBody(this.photoBody);
-    this.readBodyPosition();
 
     // Create a static plane for the ground
     this.groundBody = new CANNON.Body({
       type: CANNON.Body.STATIC, // can also be achieved by setting the mass to 0
       shape: new CANNON.Plane(),
-    });
-
-    this.groundBody.position.set(0, 0, 0);
-    this.groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // make it face up
-
-    this.world.addBody(this.groundBody);
-  }
-
-  componentWillLoad() {
-    /* this.simulate(); */
-  }
-
-  restartSimulation() {
-    // Size the box using a vector that's half of the final dimensions
-    const halfExtents = new CANNON.Vec3(4.4, 0.05, 5.3);
-    const boxShape = new CANNON.Box(halfExtents);
-
-    this.photoBody = new CANNON.Body({
-      mass: 1,
-      shape: boxShape,
-    });
-
-    this.photoBody.position.set(4.4, 2, -10.7);
-    this.photoBody.applyTorque(new CANNON.Vec3(200, 200, 200));
-    this.photoBody.velocity.set(0, 0, 40);
-
-    this.world.addBody(this.photoBody);
-    this.readBodyPosition();
-
-    // Create a static plane for the ground
-    this.groundBody = new CANNON.Body({
-      type: CANNON.Body.STATIC, // can also be achieved by setting the mass to 0
-      shape: new CANNON.Plane(),
+      collisionFilterGroup: 1,
     });
 
     this.groundBody.position.set(0, 0, 0);
@@ -99,61 +92,87 @@ export class PolaroidImg {
 
     this.world.addBody(this.groundBody);
 
-    this.running = true;
-
-    if (this.running) {
-      this.simulate();
-    }
+    this.simulate();
   }
 
   simulate() {
-    if (this.running) {
-      requestAnimationFrame(this.simulate);
-      this.world.fixedStep();
+    requestAnimationFrame(this.simulate);
 
-      this.readBodyPosition();
-    }
+    this.world.fixedStep();
+
+    this.world.bodies.forEach((b: CANNON.Body) => {
+      if (this.photos.has(b.id) && b.velocity.almostZero(0.01)) {
+        const prevPhoto = this.photos.get(b.id);
+
+        this.photos.set(b.id, { imgSrc: prevPhoto!.imgSrc, developed: true });
+      }
+    });
+
+    this.stepNumber = this.world.stepnumber;
   }
 
-  readBodyPosition() {
-    this.worldX = this.photoBody.position.x;
-    this.worldY = this.photoBody.position.y;
-    this.worldZ = this.photoBody.position.z;
-    this.orientation = this.photoBody.quaternion;
-  }
+  renderBodyToCSS(body: CANNON.Body) {
+    const finalX = body.position.x * MAPPING_FACTOR;
+    const finalY = body.position.z * MAPPING_FACTOR;
+    const finalZ = body.position.y * MAPPING_FACTOR;
 
-  mapToStyle() {
-    const finalX = this.worldX * this.mappingFactor;
-    const finalY = this.worldZ * this.mappingFactor;
-    const finalZ = this.worldY * this.mappingFactor;
+    const [{ x, y, z }, radians] = body.quaternion.toAxisAngle();
 
-    /* console.log("Coords x: ", finalX, " y: ", finalY, " z: ", finalZ); */
+    const translation = `translate3d(${finalX}px, ${finalY}px, ${finalZ}px)`;
 
-    const [{ x, y, z }, radians] = this.orientation.toAxisAngle();
-
-    const translation = this.running ? `translate3d(${finalX}px, ${finalY}px, ${finalZ}px)` : `translate(40%, -100%)`;
-
-    const rotation = `rotate3d(${x}, ${y}, ${z}, ${radians}rad)`;
+    const rotation = `rotate3d(${x}, ${z}, ${y}, ${radians}rad)`;
 
     const boxShadow = `${finalZ}px ${finalZ * 2}px ${finalZ * 2}px hsl(0deg 0% 0% / ${0.35})`;
 
     return { transform: `${translation} ${rotation}`, boxShadow };
   }
 
+  nextImage() {
+    if (this.nextIdx < this.images.length) {
+      this.addPhoto(this.images[this.nextIdx]);
+
+      this.nextIdx += 1;
+    } else {
+      const [ key ]= this.photos.entries().next().value;
+
+      const bodyToRemove: CANNON.Body = this.world.bodies.find((b: CANNON.Body) => b.id == key);
+
+      this.world.removeBody(bodyToRemove);
+      this.photos.delete(key);
+
+      this.nextIdx = 0;
+
+      this.addPhoto(this.images[this.nextIdx]);
+    }
+  }
+
   render() {
     return (
       <Host>
-        <div class="container" onClick={this.restartSimulation}>
-          <div class="frame" style={this.mapToStyle()}>
-            <img src={this.src} />
-          </div>
+        <div class="container" onClick={this.nextImage}>
+          {this.world.bodies.map((b: CANNON.Body) => {
+            if (this.photos.has(b.id)) {
+              const { imgSrc, developed } = this.photos.get(b.id)!;
+
+              const styles = this.renderBodyToCSS(b);
+
+              return (
+                <div class="frame" style={styles}>
+                  <div class="inner-frame">
+                    <img class={developed ? 'develop' : ''} src={imgSrc} />
+                  </div>
+                </div>
+              );
+            }
+          })}
         </div>
-        <div>{`World coords - x:${this.worldX.toFixed(2)}, y: ${this.worldY.toFixed(2)}, z: ${this.worldZ.toFixed(2)}`}</div>
-        <div>{`Box velocity- x:${this.photoBody.velocity.x.toFixed(2)}, y: ${this.photoBody.velocity.y.toFixed(2)}, z: ${this.photoBody.velocity.z.toFixed(2)}`}</div>
-        <div>{`Render coords - x:${(this.worldX * this.mappingFactor).toFixed()}, \
- y: ${(this.worldZ * this.mappingFactor).toFixed()}, \
- z: ${(this.worldY * this.mappingFactor).toFixed()}`}</div>
       </Host>
     );
   }
 }
+
+/* <div>{`World coords - x:${this.worldX.toFixed(2)}, y: ${this.worldY.toFixed(2)}, z: ${this.worldZ.toFixed(2)}`}</div>
+ * <div>{`Box velocity- x:${this.photoBody.velocity.x.toFixed(2)}, y: ${this.photoBody.velocity.y.toFixed(2)}, z: ${this.photoBody.velocity.z.toFixed(2)}`}</div>
+ * <div>{`Render coords - x:${(this.worldX * MAPPING_FACTOR).toFixed()}, \
+ *  y: ${(this.worldZ * MAPPING_FACTOR).toFixed()}, \
+ *  z: ${(this.worldY * MAPPING_FACTOR).toFixed()}`}</div> */

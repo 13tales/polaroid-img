@@ -21,7 +21,7 @@ export namespace Components {
         "middle": string;
     }
     interface PolaroidImg {
-        "src": string;
+        "data": string | string[];
     }
 }
 declare global {
@@ -58,7 +58,7 @@ declare namespace LocalJSX {
         "middle"?: string;
     }
     interface PolaroidImg {
-        "src"?: string;
+        "data"?: string | string[];
     }
     interface IntrinsicElements {
         "my-component": MyComponent;
