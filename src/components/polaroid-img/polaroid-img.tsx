@@ -1,4 +1,4 @@
-import { Component, Host, h, Prop, State, Watch } from '@stencil/core';
+import { Component, h, Host, getAssetPath, Prop, State } from '@stencil/core';
 import * as CANNON from 'cannon-es';
 
 const MAPPING_FACTOR = 36;
@@ -6,6 +6,7 @@ const MAPPING_FACTOR = 36;
 @Component({
   tag: 'polaroid-img',
   styleUrl: 'polaroid-img.css',
+  assetsDirs: ['assets'],
   shadow: true,
 })
 export class PolaroidImg {
@@ -13,13 +14,14 @@ export class PolaroidImg {
   photoBody: CANNON.Body;
   groundBody: CANNON.Body;
   images: string[] = [];
+  audioEl!: HTMLAudioElement;
 
   @State() nextIdx: number = 0;
   @State() orientation: CANNON.Quaternion | null;
 
   @State() stepNumber: number = 0;
 
-  @State() photos: Map<number, { imgSrc: string; developed: boolean }> = new Map();
+  @State() photos: Map<number, { imgSrc: string; developed: boolean; styles: { [k: string]: number } }> = new Map();
 
   @Prop() data: string | string[] = [];
 
@@ -56,8 +58,8 @@ export class PolaroidImg {
     const body = new CANNON.Body({
       mass: 1,
       shape: boxShape,
-      collisionFilterGroup: this.nextIdx + 2,
-      collisionFilterMask: 1,
+      collisionFilterGroup: this.nextIdx + 1,
+      collisionFilterMask: 99,
     });
 
     const spin = Math.random() * 20 - 10;
@@ -68,10 +70,23 @@ export class PolaroidImg {
     body.velocity.set(0, 0, velocity);
 
     /* const newPhoto: [string, CANNON.Body] = [imgSrc, body]; */
+    const contrast = Math.random() * 60 - 30 + 100;
+    const saturation = Math.random() * 60 - 30 + 100;
+    const brightness = Math.random() * 60 - 30 + 100;
+    const blur = Math.random();
+    const hue = Math.random() * 30 - 15;
+
+    const styles = {
+      contrast,
+      saturation,
+      brightness,
+      blur,
+      hue
+    };
 
     this.world.addBody(body);
 
-    this.photos = new Map([...this.photos.entries(), [body.id, { imgSrc, developed: false }]]);
+    this.photos = new Map([...this.photos.entries(), [body.id, { imgSrc, developed: false, styles }]]);
   }
 
   setupSimulation() {
@@ -84,7 +99,7 @@ export class PolaroidImg {
     this.groundBody = new CANNON.Body({
       type: CANNON.Body.STATIC, // can also be achieved by setting the mass to 0
       shape: new CANNON.Plane(),
-      collisionFilterGroup: 1,
+      collisionFilterGroup: 99,
     });
 
     this.groundBody.position.set(0, 0, 0);
@@ -101,10 +116,11 @@ export class PolaroidImg {
     this.world.fixedStep();
 
     this.world.bodies.forEach((b: CANNON.Body) => {
-      if (this.photos.has(b.id) && b.velocity.almostZero(0.01)) {
+      if (this.photos.has(b.id) && b.velocity.almostZero(0.1)) {
+        b.type = CANNON.Body.STATIC;
         const prevPhoto = this.photos.get(b.id);
 
-        this.photos.set(b.id, { imgSrc: prevPhoto!.imgSrc, developed: true });
+        this.photos.set(b.id, { imgSrc: prevPhoto!.imgSrc, developed: true, styles: prevPhoto!.styles });
       }
     });
 
@@ -124,43 +140,66 @@ export class PolaroidImg {
 
     const boxShadow = `${finalZ}px ${finalZ * 2}px ${finalZ * 2}px hsl(0deg 0% 0% / ${0.35})`;
 
+    const { styles } = this.photos.get(body.id)!;
+
     return { transform: `${translation} ${rotation}`, boxShadow };
   }
 
   nextImage() {
-    if (this.nextIdx < this.images.length) {
-      this.addPhoto(this.images[this.nextIdx]);
+    const speed = 1 + (Math.random() * 0.4 - 0.2);
+    const photoTimeout = speed * 1000 + 300;
+    this.audioEl.playbackRate = speed;
+    this.audioEl.play();
 
-      this.nextIdx += 1;
-    } else {
-      const [ key ]= this.photos.entries().next().value;
+    setTimeout(() => {
+      if (this.photos.size < this.images.length) {
+        this.addPhoto(this.images[this.nextIdx]);
 
-      const bodyToRemove: CANNON.Body = this.world.bodies.find((b: CANNON.Body) => b.id == key);
+        this.nextIdx += 1;
+      } else {
+        if (this.nextIdx === this.images.length) {
+          this.nextIdx = 0;
+        }
 
-      this.world.removeBody(bodyToRemove);
-      this.photos.delete(key);
+        setTimeout(() => {
+          this.addPhoto(this.images[this.nextIdx]);
 
-      this.nextIdx = 0;
+          this.nextIdx += 1;
+        }, 100);
 
-      this.addPhoto(this.images[this.nextIdx]);
-    }
+        const [key] = this.photos.entries().next().value;
+
+        const bodyToRemove: CANNON.Body = this.world.bodies.find((b: CANNON.Body) => b.id == key);
+
+        this.world.removeBody(bodyToRemove);
+
+        this.photos.delete(key);
+      }
+    }, photoTimeout);
   }
 
   render() {
+    const audioSrc = getAssetPath('./assets/polaroid.mp3');
+
     return (
       <Host>
+        <audio ref={el => (this.audioEl = el as HTMLAudioElement)} src={audioSrc} />
         <div class="container" onClick={this.nextImage}>
           {this.world.bodies.map((b: CANNON.Body) => {
             if (this.photos.has(b.id)) {
-              const { imgSrc, developed } = this.photos.get(b.id)!;
+              const { imgSrc, developed, styles: imgStyles } = this.photos.get(b.id)!;
 
               const styles = this.renderBodyToCSS(b);
 
               return (
-                <div class="frame" style={styles}>
-                  <div class="inner-frame">
-                    <img class={developed ? 'develop' : ''} src={imgSrc} />
-                  </div>
+                <div class="frame" ref={(el: HTMLImageElement) => {
+                  el.style.setProperty("--saturation", `${imgStyles.saturation}%`);
+                  el.style.setProperty("--contrast", `${imgStyles.contrast}%`);
+                  el.style.setProperty("--hue", `${imgStyles.hue}deg`);
+                  el.style.setProperty("--brightness", `${imgStyles.brightness}%`);
+                  el.style.setProperty("--blur", `${imgStyles.blur}px`);
+                }} style={styles}>
+                  <img class={developed ? "develop" : ""}  src={imgSrc} />
                 </div>
               );
             }
@@ -170,9 +209,3 @@ export class PolaroidImg {
     );
   }
 }
-
-/* <div>{`World coords - x:${this.worldX.toFixed(2)}, y: ${this.worldY.toFixed(2)}, z: ${this.worldZ.toFixed(2)}`}</div>
- * <div>{`Box velocity- x:${this.photoBody.velocity.x.toFixed(2)}, y: ${this.photoBody.velocity.y.toFixed(2)}, z: ${this.photoBody.velocity.z.toFixed(2)}`}</div>
- * <div>{`Render coords - x:${(this.worldX * MAPPING_FACTOR).toFixed()}, \
- *  y: ${(this.worldZ * MAPPING_FACTOR).toFixed()}, \
- *  z: ${(this.worldY * MAPPING_FACTOR).toFixed()}`}</div> */
