@@ -70,11 +70,11 @@ export class PolaroidImg {
     body.velocity.set(0, 0, velocity);
 
     /* const newPhoto: [string, CANNON.Body] = [imgSrc, body]; */
-    const contrast = Math.random() * 60 - 30 + 100;
-    const saturation = Math.random() * 60 - 30 + 100;
+    const contrast = Math.random() * 20 - 10 + 100;
+    const saturation = Math.random() * 60 + 100;
     const brightness = Math.random() * 60 - 30 + 100;
-    const blur = Math.random();
-    const hue = Math.random() * 30 - 15;
+    const blur = Math.random() * 0.25 + 0.25;
+    const hue = Math.random() * 50 - 25;
 
     const styles = {
       contrast,
@@ -193,11 +193,13 @@ export class PolaroidImg {
 
               return (
                 <div class="frame" ref={(el: HTMLImageElement) => {
-                  el.style.setProperty("--saturation", `${imgStyles.saturation}%`);
-                  el.style.setProperty("--contrast", `${imgStyles.contrast}%`);
-                  el.style.setProperty("--hue", `${imgStyles.hue}deg`);
-                  el.style.setProperty("--brightness", `${imgStyles.brightness}%`);
-                  el.style.setProperty("--blur", `${imgStyles.blur}px`);
+                  if (developed) {
+                    el.style.setProperty("--saturation", `${imgStyles.saturation}%`);
+                    el.style.setProperty("--contrast", `${imgStyles.contrast}%`);
+                    el.style.setProperty("--hue", `${imgStyles.hue}deg`);
+                    el.style.setProperty("--brightness", `${imgStyles.brightness}%`);
+                    el.style.setProperty("--blur", `${imgStyles.blur}px`);
+                  }
                 }} style={styles}>
                   <img class={developed ? "develop" : ""}  src={imgSrc} />
                 </div>

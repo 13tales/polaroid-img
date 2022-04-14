@@ -10,6 +10,11 @@
   perspective: 1000px;
   transform-style: preserve-3d;
   overflow: hidden;
+  --hue: 0deg;
+  --contrast: 5%;
+  --saturation: 150%;
+  --brightness: 100%;
+  --blur: 1px;
 }
 
 .frame {
@@ -25,11 +30,10 @@
   height: 300px;
   width: 300px;
   object-fit: cover;
-  filter: contrast(5%) saturate(150%);
   transition: filter 4s ease-in;
+  filter: hue-rotate(var(--hue)) contrast(var(--contrast)) saturate(var(--saturation)) brightness(var(--brightness)) blur(var(--blur)) !important;
 }
 
-.develop {
-  transition: filter 4s ease-in;
-  filter: hue-rotate(var(--hue)) contrast(var(--contrast)) saturate(var(--saturation)) !important;
-}
+/* .develop { */
+/*   transition: filter 4s ease-in; */
+/* } */
