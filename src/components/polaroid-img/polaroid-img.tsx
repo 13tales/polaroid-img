@@ -34,7 +34,9 @@ export class PolaroidImg {
     this.simulate = this.simulate.bind(this);
     this.nextImage = this.nextImage.bind(this);
     this.addPhoto = this.addPhoto.bind(this);
+  }
 
+  componentWillLoad() {
     this.parseImageData(this.data);
 
     this.setupSimulation();
@@ -86,7 +88,8 @@ export class PolaroidImg {
 
     this.world.addBody(body);
 
-    this.photos = new Map([...this.photos.entries(), [body.id, { imgSrc, developed: false, styles }]]);
+    /* this.photos = new Map([...this.photos.entries(), [body.id, { imgSrc, developed: false, styles }]]); */
+    this.photos.set(body.id, { imgSrc, developed: false, styles });
   }
 
   setupSimulation() {
@@ -140,8 +143,6 @@ export class PolaroidImg {
 
     const boxShadow = `${finalZ}px ${finalZ * 2}px ${finalZ * 2}px hsl(0deg 0% 0% / ${0.35})`;
 
-    const { styles } = this.photos.get(body.id)!;
-
     return { transform: `${translation} ${rotation}`, boxShadow };
   }
 
@@ -170,7 +171,6 @@ export class PolaroidImg {
         const [key] = this.photos.entries().next().value;
 
         const bodyToRemove: CANNON.Body = this.world.bodies.find((b: CANNON.Body) => b.id == key);
-
         this.world.removeBody(bodyToRemove);
 
         this.photos.delete(key);
@@ -192,8 +192,8 @@ export class PolaroidImg {
               const styles = this.renderBodyToCSS(b);
 
               return (
-                <div class="frame" ref={(el: HTMLImageElement) => {
-                  if (developed) {
+                <div class="frame" ref={(el: HTMLElement) => {
+                  if (el?.style && developed) {
                     el.style.setProperty("--saturation", `${imgStyles.saturation}%`);
                     el.style.setProperty("--contrast", `${imgStyles.contrast}%`);
                     el.style.setProperty("--hue", `${imgStyles.hue}deg`);

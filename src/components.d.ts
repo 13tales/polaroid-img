@@ -23,6 +23,9 @@ export namespace Components {
     interface PolaroidImg {
         "data": string | string[];
     }
+    interface ShatterImg {
+        "src": string;
+    }
 }
 declare global {
     interface HTMLMyComponentElement extends Components.MyComponent, HTMLStencilElement {
@@ -37,9 +40,16 @@ declare global {
         prototype: HTMLPolaroidImgElement;
         new (): HTMLPolaroidImgElement;
     };
+    interface HTMLShatterImgElement extends Components.ShatterImg, HTMLStencilElement {
+    }
+    var HTMLShatterImgElement: {
+        prototype: HTMLShatterImgElement;
+        new (): HTMLShatterImgElement;
+    };
     interface HTMLElementTagNameMap {
         "my-component": HTMLMyComponentElement;
         "polaroid-img": HTMLPolaroidImgElement;
+        "shatter-img": HTMLShatterImgElement;
     }
 }
 declare namespace LocalJSX {
@@ -60,9 +70,13 @@ declare namespace LocalJSX {
     interface PolaroidImg {
         "data"?: string | string[];
     }
+    interface ShatterImg {
+        "src"?: string;
+    }
     interface IntrinsicElements {
         "my-component": MyComponent;
         "polaroid-img": PolaroidImg;
+        "shatter-img": ShatterImg;
     }
 }
 export { LocalJSX as JSX };
@@ -71,6 +85,7 @@ declare module "@stencil/core" {
         interface IntrinsicElements {
             "my-component": LocalJSX.MyComponent & JSXBase.HTMLAttributes<HTMLMyComponentElement>;
             "polaroid-img": LocalJSX.PolaroidImg & JSXBase.HTMLAttributes<HTMLPolaroidImgElement>;
+            "shatter-img": LocalJSX.ShatterImg & JSXBase.HTMLAttributes<HTMLShatterImgElement>;
         }
     }
 }

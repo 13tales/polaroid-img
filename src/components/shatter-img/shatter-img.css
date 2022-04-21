@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+img {
+  width: 900px;
+  height: 900px;
+  object-fit: cover;
+}
+
+.poly {
+  background-size: 900 900;
+  position: absolute;
+  /* transition: transform .03s linear; */
+  will-change: transform;
+  transform-style: preserve-3d;
+  z-index: -1;
+  /* width: var(--poly-width), */
+  /* height: var(--poly-height), */
+  /* left: var(--poly-x-min), */
+  /* top: var(--poly-y-min), */
+  /* background-image: var(--poly-background), */
+  /* background-position: var(--poly-background-position), */
+  /* clip-path: var(--poly-clip-path) */
+}
+
+.container {
+  perspective: 1000px;
+  overflow: hidden;
+}
