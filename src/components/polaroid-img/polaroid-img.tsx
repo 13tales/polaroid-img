@@ -15,13 +15,12 @@ export class PolaroidImg {
   groundBody: CANNON.Body;
   images: string[] = [];
   audioEl!: HTMLAudioElement;
+  photos: Map<number, { imgSrc: string; developed: boolean; styles: { [k: string]: number } }> = new Map();
 
   @State() nextIdx: number = 0;
   @State() orientation: CANNON.Quaternion | null;
 
   @State() stepNumber: number = 0;
-
-  @State() photos: Map<number, { imgSrc: string; developed: boolean; styles: { [k: string]: number } }> = new Map();
 
   @Prop() data: string | string[] = [];
 
@@ -67,7 +66,7 @@ export class PolaroidImg {
     const spin = Math.random() * 20 - 10;
     const velocity = Math.random() * 30 + 150;
 
-    body.position.set(4.4, 5, -10.7);
+    body.position.set(5, 5, -10.7);
     body.angularVelocity.set(0, Math.random() * 2 - 1, spin);
     body.velocity.set(0, 0, velocity);
 
@@ -83,7 +82,7 @@ export class PolaroidImg {
       saturation,
       brightness,
       blur,
-      hue
+      hue,
     };
 
     this.world.addBody(body);
@@ -185,27 +184,37 @@ export class PolaroidImg {
       <Host>
         <audio ref={el => (this.audioEl = el as HTMLAudioElement)} src={audioSrc} />
         <div class="container" onClick={this.nextImage}>
-          {this.world.bodies.map((b: CANNON.Body) => {
-            if (this.photos.has(b.id)) {
-              const { imgSrc, developed, styles: imgStyles } = this.photos.get(b.id)!;
+          {this.photos.size > 0 ? (
+            this.world.bodies.map((b: CANNON.Body) => {
+              if (this.photos.has(b.id)) {
+                const { imgSrc, developed, styles: imgStyles } = this.photos.get(b.id)!;
 
-              const styles = this.renderBodyToCSS(b);
+                const styles = this.renderBodyToCSS(b);
 
-              return (
-                <div class="frame" ref={(el: HTMLElement) => {
-                  if (el?.style && developed) {
-                    el.style.setProperty("--saturation", `${imgStyles.saturation}%`);
-                    el.style.setProperty("--contrast", `${imgStyles.contrast}%`);
-                    el.style.setProperty("--hue", `${imgStyles.hue}deg`);
-                    el.style.setProperty("--brightness", `${imgStyles.brightness}%`);
-                    el.style.setProperty("--blur", `${imgStyles.blur}px`);
-                  }
-                }} style={styles}>
-                  <img class={developed ? "develop" : ""}  src={imgSrc} />
-                </div>
-              );
-            }
-          })}
+                return (
+                  <div
+                    class="frame"
+                    ref={(el: HTMLElement) => {
+                      if (el?.style && developed) {
+                        el.style.setProperty('--saturation', `${imgStyles.saturation}%`);
+                        el.style.setProperty('--contrast', `${imgStyles.contrast}%`);
+                        el.style.setProperty('--hue', `${imgStyles.hue}deg`);
+                        el.style.setProperty('--brightness', `${imgStyles.brightness}%`);
+                        el.style.setProperty('--blur', `${imgStyles.blur}px`);
+                      }
+                    }}
+                    style={styles}
+                  >
+                    <img class={developed ? 'develop' : ''} src={imgSrc} />
+                  </div>
+                );
+              }
+            })
+          ) : (
+            <div class="prompt">
+              <h1>Click for next image</h1>
+            </div>
+          )}
         </div>
       </Host>
     );
